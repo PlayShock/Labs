@@ -1,9 +1,128 @@
 import pygame
 import sys
+import tkinter as tk
+from tkinter import messagebox
 from copy import deepcopy
-from auth import AuthWindow
 
 pygame.init()
+
+class AuthWindow:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Авторизация")
+        self.root.geometry("300x350")
+        self.root.resizable(False, False)
+        
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x = (screen_width - 300) // 2
+        y = (screen_height - 350) // 2
+        self.root.geometry(f"300x350+{x}+{y}")
+        
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+        self.login_frame = tk.Frame(self.root)
+        tk.Label(self.login_frame, text="Авторизация", font=('Arial', 14, 'bold')).pack(pady=10)
+        
+        tk.Label(self.login_frame, text="Логин:").pack(pady=5)
+        self.login_entry = tk.Entry(self.login_frame, width=30)
+        self.login_entry.pack(pady=5)
+        
+        tk.Label(self.login_frame, text="Пароль:").pack(pady=5)
+        self.password_entry = tk.Entry(self.login_frame, show="*", width=30)
+        self.password_entry.pack(pady=5)
+        
+        tk.Button(self.login_frame, text="Войти", width=20, command=self.login).pack(pady=10)
+        tk.Button(self.login_frame, text="Регистрация", width=20,
+                 command=lambda: self.show_frame("register")).pack(pady=5)
+        
+        self.register_frame = tk.Frame(self.root)
+        tk.Label(self.register_frame, text="Регистрация", font=('Arial', 14, 'bold')).pack(pady=10)
+        
+        tk.Label(self.register_frame, text="Логин:").pack(pady=5)
+        self.reg_login_entry = tk.Entry(self.register_frame, width=30)
+        self.reg_login_entry.pack(pady=5)
+        
+        tk.Label(self.register_frame, text="Пароль:").pack(pady=5)
+        self.reg_password_entry = tk.Entry(self.register_frame, show="*", width=30)
+        self.reg_password_entry.pack(pady=5)
+        
+        tk.Label(self.register_frame, text="Повторите пароль:").pack(pady=5)
+        self.reg_confirm_entry = tk.Entry(self.register_frame, show="*", width=30)
+        self.reg_confirm_entry.pack(pady=5)
+        
+        buttons_frame = tk.Frame(self.register_frame)
+        buttons_frame.pack(pady=10)
+        
+        tk.Button(buttons_frame, text="Зарегистрироваться", width=20,
+                 command=self.register).pack(pady=5)
+        tk.Button(buttons_frame, text="Назад", width=20,
+                 command=lambda: self.show_frame("login")).pack(pady=5)
+        
+        self.login_frame.pack(expand=True)
+    
+    def on_closing(self):
+        self.root.destroy()
+        sys.exit()
+        
+    def show_frame(self, frame_name):
+        if frame_name == "login":
+            self.register_frame.pack_forget()
+            self.login_frame.pack()
+            self.current_tab = "login"
+        else:
+            self.login_frame.pack_forget()
+            self.register_frame.pack()
+            self.current_tab = "register"
+    
+    def login(self):
+        username = self.login_entry.get()
+        password = self.password_entry.get()
+        
+        try:
+            with open('users.txt', 'r') as file:
+                for line in file:
+                    stored_username, stored_password = line.strip().split(':')
+                    if username == stored_username and password == stored_password:
+                        messagebox.showinfo("Успех", "Авторизация успешна!")
+                        self.root.destroy()
+                        return True
+            messagebox.showerror("Ошибка", "Неверный логин или пароль")
+        except FileNotFoundError:
+            messagebox.showerror("Ошибка", "Нет заргистрированных пользователей")
+        return False
+    
+    def register(self):
+        username = self.reg_login_entry.get()
+        password = self.reg_password_entry.get()
+        confirm = self.reg_confirm_entry.get()
+        
+        if not username or not password:
+            messagebox.showerror("Ошибка", "Заполните все поля")
+            return
+        
+        if password != confirm:
+            messagebox.showerror("Ошибка", "Пароли не совпадают")
+            return
+        
+        try:
+            with open('users.txt', 'r') as file:
+                for line in file:
+                    stored_username = line.strip().split(':')[0]
+                    if username == stored_username:
+                        messagebox.showerror("Ошибка", "Такой пользователь уже существует")
+                        return
+        except FileNotFoundError:
+            pass
+        
+        with open('users.txt', 'a') as file:
+            file.write(f"{username}:{password}\n")
+        
+        messagebox.showinfo("Успех", "Регистрация успешна!")
+        self.show_frame("login")
+    
+    def run(self):
+        self.root.mainloop()
 
 WIDTH = 800
 HEIGHT = 800
@@ -18,6 +137,7 @@ YELLOW = (255, 255, 0)
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption('Ставропольские шашки')
 
+
 class Board:
     def __init__(self):
         self.board = [
@@ -30,32 +150,32 @@ class Board:
             [0, 1, 0, 1, 0, 1, 0, 1],
             [1, 0, 1, 0, 1, 0, 1, 0]
         ]
-        self.kings = set()  
+        self.kings = set()
         self.selected_piece = None
-        self.current_player = 1  
+        self.current_player = 1
         self.valid_moves = []
         self.must_capture = False
         self.last_captured = None
-        self.winner = None  
+        self.winner = None
 
     def draw(self, screen):
         for row in range(8):
             for col in range(8):
                 color = WHITE if (row + col) % 2 == 0 else GRAY
                 pygame.draw.rect(screen, color, (col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-                
+
                 if self.board[row][col] != 0:
                     color = WHITE if self.board[row][col] == 1 else BLACK
-                    pygame.draw.circle(screen, color, 
-                                    (col * CELL_SIZE + CELL_SIZE // 2, 
-                                     row * CELL_SIZE + CELL_SIZE // 2), 
-                                    CELL_SIZE // 2 - 10)
-                    
+                    pygame.draw.circle(screen, color,
+                                       (col * CELL_SIZE + CELL_SIZE // 2,
+                                        row * CELL_SIZE + CELL_SIZE // 2),
+                                       CELL_SIZE // 2 - 10)
+
                     if (row, col) in self.kings:
                         pygame.draw.circle(screen, GOLD,
-                                        (col * CELL_SIZE + CELL_SIZE // 2,
-                                         row * CELL_SIZE + CELL_SIZE // 2),
-                                        CELL_SIZE // 4 - 5)
+                                           (col * CELL_SIZE + CELL_SIZE // 2,
+                                            row * CELL_SIZE + CELL_SIZE // 2),
+                                           CELL_SIZE // 4 - 5)
 
     def get_valid_moves(self, row, col):
         moves = []
@@ -97,14 +217,14 @@ class Board:
     def get_piece_captures(self, row, col, is_king):
         captures = []
         piece = self.board[row][col]
-        
+
         if is_king:
             directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
             for dx, dy in directions:
                 curr_row, curr_col = row + dx, col + dy
                 found_enemy = False
                 enemy_pos = None
-                
+
                 while 0 <= curr_row < 8 and 0 <= curr_col < 8:
                     if self.board[curr_row][curr_col] != 0:
                         if not found_enemy and self.board[curr_row][curr_col] != piece:
@@ -114,7 +234,7 @@ class Board:
                             break
                     elif found_enemy:
                         captures.append((curr_row, curr_col))
-                    
+
                     curr_row += dx
                     curr_col += dy
         else:
@@ -122,8 +242,8 @@ class Board:
                 new_row = row + dx
                 new_col = col + dy
                 if 0 <= new_row < 8 and 0 <= new_col < 8 and self.board[new_row][new_col] == 0:
-                    mid_row = row + dx//2
-                    mid_col = col + dy//2
+                    mid_row = row + dx // 2
+                    mid_col = col + dy // 2
                     if self.board[mid_row][mid_col] != 0 and self.board[mid_row][mid_col] != piece:
                         captures.append((new_row, new_col))
 
@@ -132,33 +252,33 @@ class Board:
     def check_winner(self):
         white_pieces = 0
         black_pieces = 0
-        
+
         for row in range(8):
             for col in range(8):
                 if self.board[row][col] == 1:
                     white_pieces += 1
                 elif self.board[row][col] == 2:
                     black_pieces += 1
-        
+
         if white_pieces == 0:
             self.winner = "Черные"
         elif black_pieces == 0:
             self.winner = "Белые"
-    
+
     def make_move(self, start, end):
         start_row, start_col = start
         end_row, end_col = end
         piece = self.board[start_row][start_col]
         is_king = (start_row, start_col) in self.kings
         was_capture = False
-        
+
         self.board[end_row][end_col] = piece
         self.board[start_row][start_col] = 0
-        
+
         if is_king:
             dx = 1 if end_row > start_row else -1
             dy = 1 if end_col > start_col else -1
-            
+
             curr_row, curr_col = start_row + dx, start_col + dy
             while curr_row != end_row or curr_col != end_col:
                 if self.board[curr_row][curr_col] != 0:
@@ -176,47 +296,48 @@ class Board:
                 if (mid_row, mid_col) in self.kings:
                     self.kings.remove((mid_row, mid_col))
                 was_capture = True
-        
+
         if is_king:
             self.kings.remove((start_row, start_col))
             self.kings.add((end_row, end_col))
         elif (piece == 1 and end_row == 0) or (piece == 2 and end_row == 7):
             self.kings.add((end_row, end_col))
-        
+
         if was_capture:
             next_captures = self.get_piece_captures(end_row, end_col, (end_row, end_col) in self.kings)
             if not next_captures:
                 self.current_player = 3 - self.current_player
         else:
             self.current_player = 3 - self.current_player
-        
+
         self.check_winner()
+
 
 def main():
     auth_window = AuthWindow()
     auth_window.run()
-    
+
     game_board = Board()
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 36)
-    
+
     while True:
         clock.tick(60)
-        
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            
+
             if not game_board.winner:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     x, y = pygame.mouse.get_pos()
                     col = x // CELL_SIZE
                     row = y // CELL_SIZE
-                    
+
                     if 0 <= row < 8 and 0 <= col < 8:
                         if game_board.selected_piece is None:
-                            if game_board.board[row][col] != 0: 
+                            if game_board.board[row][col] != 0:
                                 game_board.selected_piece = (row, col)
                                 game_board.valid_moves = game_board.get_valid_moves(row, col)
                         else:
@@ -224,7 +345,8 @@ def main():
                                 game_board.make_move(game_board.selected_piece, (row, col))
                                 if game_board.get_piece_captures(row, col, (row, col) in game_board.kings):
                                     game_board.selected_piece = (row, col)
-                                    game_board.valid_moves = game_board.get_piece_captures(row, col, (row, col) in game_board.kings)
+                                    game_board.valid_moves = game_board.get_piece_captures(row, col, (
+                                    row, col) in game_board.kings)
                                 else:
                                     game_board.selected_piece = None
                                     game_board.valid_moves = []
@@ -233,40 +355,41 @@ def main():
                                 game_board.valid_moves = []
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 game_board = Board()
-        
+
         screen.fill(WHITE)
         game_board.draw(screen)
-        
+
         if game_board.winner:
             winner_text = f"Победили {game_board.winner}! Нажмите R для новой игры"
             text_surface = font.render(winner_text, True, BLACK)
-            text_rect = text_surface.get_rect(center=(WIDTH//2, HEIGHT//2))
-            pygame.draw.rect(screen, WHITE, 
-                           (text_rect.x - 10, text_rect.y - 10,
-                            text_rect.width + 20, text_rect.height + 20))
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+            pygame.draw.rect(screen, WHITE,
+                             (text_rect.x - 10, text_rect.y - 10,
+                              text_rect.width + 20, text_rect.height + 20))
             screen.blit(text_surface, text_rect)
         else:
             turn_text = "Ход: Белые" if game_board.current_player == 1 else "Ход: Черные"
             text_surface = font.render(turn_text, True, BLACK)
             screen.blit(text_surface, (10, HEIGHT - 40))
-        
+
         if not game_board.winner:
             if game_board.selected_piece:
                 row, col = game_board.selected_piece
                 pygame.draw.circle(screen, YELLOW,
-                                (col * CELL_SIZE + CELL_SIZE // 2,
-                                 row * CELL_SIZE + CELL_SIZE // 2),
-                                 CELL_SIZE // 2 - 5)
-            
+                                   (col * CELL_SIZE + CELL_SIZE // 2,
+                                    row * CELL_SIZE + CELL_SIZE // 2),
+                                   CELL_SIZE // 2 - 5)
+
             if game_board.selected_piece and game_board.valid_moves:
                 for move in game_board.valid_moves:
                     row, col = move
                     pygame.draw.circle(screen, GREEN,
-                                    (col * CELL_SIZE + CELL_SIZE // 2,
-                                     row * CELL_SIZE + CELL_SIZE // 2),
-                                    15)
-        
+                                       (col * CELL_SIZE + CELL_SIZE // 2,
+                                        row * CELL_SIZE + CELL_SIZE // 2),
+                                       15)
+
         pygame.display.flip()
+
 
 if __name__ == "__main__":
     main()
